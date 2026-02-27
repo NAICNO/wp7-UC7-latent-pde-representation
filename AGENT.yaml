@@ -1,0 +1,206 @@
+# AGENT.yaml — Machine-readable agent configuration for UC7
+# Latent Representation of PDE Solutions
+
+metadata:
+  name: "Latent PDE Representations"
+  use_case: UC7
+  repo: https://github.com/NAICNO/wp7-UC7-latent-pde-representation
+  documentation: https://naicno.github.io/wp7-UC7-latent-pde-representation/
+  description: >
+    Learning compact latent representations of PDE solution manifolds using
+    autoencoders. Trains separate autoencoders on convection-diffusion 2D
+    solution fields and streamfunction coefficient vectors, then aligns the
+    latent spaces on the unit hypersphere for cross-modal transfer.
+  framework: tensorflow
+  license: dual (CC BY-NC 4.0 for content, GPL-3.0-only for code)
+
+prerequisites:
+  - "SSH access to NAIC VM (via orchestrator.naic.no)"
+  - "Python 3.8+"
+  - "GPU recommended (NVIDIA)"
+  - "TensorFlow 2.x"
+
+environment_check:
+  - command: "python3 --version"
+    expected: "Python 3.8+"
+  - command: "python3 -c 'import tensorflow as tf; print(tf.__version__)'"
+    expected: "2.x version string"
+  - command: "python3 -c 'from pypardiso import spsolve; print(\"OK\")'"
+    expected: "OK"
+  - command: "ls data/*.npy"
+    expected: ".npy files after running cd2d_streamfunc.py"
+
+vm_init:
+  script: "vm-init.sh"
+  description: "One-time VM initialization (installs system packages, CUDA setup)"
+  commands:
+    - "curl -O https://raw.githubusercontent.com/NAICNO/wp7-UC7-latent-pde-representation/main/vm-init.sh"
+    - "chmod +x vm-init.sh"
+    - "./vm-init.sh"
+
+setup:
+  script: "setup.sh"
+  commands:
+    - "git clone https://github.com/NAICNO/wp7-UC7-latent-pde-representation.git"
+    - "cd wp7-UC7-latent-pde-representation"
+    - "chmod +x setup.sh"
+    - "./setup.sh"
+    - "source venv/bin/activate"
+
+jupyter:
+  start: "jupyter lab --no-browser --ip=127.0.0.1 --port=8888"
+  tunnel_template: "ssh -v -N -L 8888:localhost:8888 -i YOUR_KEY_PATH ubuntu@YOUR_VM_IP"
+  tunnel_example: "ssh -v -N -L 8888:localhost:8888 -i ~/.ssh/naic-vm.pem ubuntu@10.212.136.52"
+  notebooks:
+    - "demonstrator_pde.ipynb"
+    - "demonstrator-v1.orchestrator.ipynb"
+
+cli:
+  entry_points:
+    - name: "Data Generation"
+      description: "Generate convection-diffusion 2D solutions with streamfunction-driven advection"
+      script: "src/cd2d_streamfunc.py"
+      command: "python src/cd2d_streamfunc.py --n-sol 360 --levels 16 32 64 128"
+
+    - name: "Create Data Splits"
+      description: "Create consistent train/val/test splits"
+      script: "src/create_splits.py"
+      command: "python src/create_splits.py --data_dir data"
+
+    - name: "Train Solution Autoencoder"
+      description: "Train convolutional autoencoder on PDE solution fields"
+      script: "src/train_solution_autoencoder.py"
+      command: "python src/train_solution_autoencoder.py"
+
+    - name: "Train Streamfunction Autoencoder"
+      description: "Train MLP autoencoder on streamfunction coefficient vectors"
+      script: "src/train_streamfunction_autoencoder.py"
+      command: "python src/train_streamfunction_autoencoder.py"
+
+    - name: "Align Latent Spaces"
+      description: "Align modality-specific latents on the unit hypersphere"
+      script: "src/align_latent_spaces.py"
+      command: "python src/align_latent_spaces.py"
+
+    - name: "Evaluate End-to-End"
+      description: "Compute encoding/decoding REE for all modalities and splits"
+      script: "src/evaluate_decoder_end_to_end.py"
+      command: "python src/evaluate_decoder_end_to_end.py"
+
+parameters:
+  data_generation:
+    n_sol:
+      description: "Number of PDE solutions to generate"
+      type: int
+      default: 1000
+    levels:
+      description: "Grid resolutions for multi-resolution solutions"
+      type: "list[int]"
+      default: [16, 32, 64, 128, 256]
+    n_sf:
+      description: "Total polynomial degree of the streamfunction psi"
+      type: int
+      default: 4
+    vel_scale:
+      description: "Target RMS speed on cell centers after velocity scaling"
+      type: float
+      default: 100000.0
+    coeff_mode:
+      description: "Coefficient sampling distribution"
+      type: string
+      default: "uniform"
+      choices: ["normal", "uniform"]
+    seed:
+      description: "Random seed for coefficient sampling"
+      type: int
+      default: 12345
+    workers:
+      description: "Number of parallel workers for PDE solving"
+      type: int
+      default: 24
+
+  splits:
+    val_frac:
+      description: "Validation fraction"
+      type: float
+      default: 0.20
+    test_frac:
+      description: "Test fraction"
+      type: float
+      default: 0.20
+
+  evaluation:
+    mods:
+      description: "Modalities to evaluate"
+      type: "list[string]"
+      default: ["u16", "u32", "u64", "u128"]
+    ad:
+      description: "Aligned latent dimension"
+      type: int
+      default: 32
+    batch:
+      description: "Batch size for evaluation"
+      type: int
+      default: 8
+
+source_modules:
+  - name: "cd2d_streamfunc.py"
+    lines: 454
+    description: "PDE data generation with streamfunction-parameterized divergence-free velocity"
+  - name: "create_splits.py"
+    lines: 184
+    description: "Train/val/test split creation with consistency checks"
+  - name: "train_solution_autoencoder.py"
+    lines: 475
+    description: "Convolutional autoencoder for grid-based solution fields"
+  - name: "train_streamfunction_autoencoder.py"
+    lines: 264
+    description: "MLP autoencoder for streamfunction coefficient vectors"
+  - name: "align_latent_spaces.py"
+    lines: 474
+    description: "Latent alignment on unit hypersphere via normalized mean"
+  - name: "analyze_latent_alignment.py"
+    lines: 236
+    description: "Procrustes diagnostics and pairwise REE matrices"
+  - name: "finetune_encoder_to_latent.py"
+    lines: 365
+    description: "Encoder chain fine-tuning toward joint latent"
+  - name: "finetune_decoder_from_latent.py"
+    lines: 301
+    description: "Decoder chain fine-tuning from joint latent"
+  - name: "evaluate_decoder_end_to_end.py"
+    lines: 340
+    description: "End-to-end encoding/decoding REE per modality and split"
+  - name: "compute_errors.py"
+    lines: 282
+    description: "Error metrics and diagnostics"
+  - name: "plot_solutions.py"
+    lines: 134
+    description: "Solution field visualization at multiple resolutions"
+  - name: "plot_modalities.py"
+    lines: 242
+    description: "Cross-modal reconstruction visualization"
+
+troubleshooting:
+  - issue: "ModuleNotFoundError: No module named 'tensorflow'"
+    solution: "pip install tensorflow[and-cuda]"
+  - issue: "No module named 'pypardiso'"
+    solution: "pip install pypardiso (requires Intel MKL)"
+  - issue: "Data files not found"
+    solution: "Run python src/cd2d_streamfunc.py first"
+  - issue: "OOM on GPU"
+    solution: "Reduce --n-sol or --batch argument"
+  - issue: "CUDA not available"
+    solution: "Falls back to CPU; install CUDA toolkit for GPU support"
+  - issue: "ModuleNotFoundError"
+    solution: "Activate venv: source venv/bin/activate"
+  - issue: "Port 8888 in use"
+    solution: "Use --port=8889 or kill existing Jupyter"
+
+verification:
+  - step: "Tests pass"
+    command: "pytest tests/ -v"
+    expected: "168 passed"
+  - step: "PDE solver works"
+    command: "python -c 'from cd2d_streamfunc import solve_level, sample_coeffs, monomial_multiindices; C, idx = sample_coeffs(4, 1); u = solve_level(16, C[0], idx, 1e4, solver=\"scipy\"); print(u.shape)'"
+    expected: "(16, 16)"

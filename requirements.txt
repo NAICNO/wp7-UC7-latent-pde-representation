@@ -1,0 +1,8 @@
+numpy
+scipy
+pypardiso
+matplotlib
+pandas
+tensorflow[and-cuda]
+jupyterlab
+ipywidgets

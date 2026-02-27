@@ -1,0 +1,25 @@
+{
+  "title": "NAIC WP7 UC7 — Latent PDE Representation",
+  "description": "Autoencoder-based latent representation learning for PDE solution manifolds. Cross-modal alignment between parameter space and solution space.",
+  "creators": [
+    {
+      "name": "Johannsen, Klaus",
+      "affiliation": "NORCE Norwegian Research Centre"
+    },
+    {
+      "name": "Heggelund, Yngve",
+      "affiliation": "NORCE Norwegian Research Centre"
+    }
+  ],
+  "keywords": [
+    "PDE",
+    "autoencoders",
+    "representation learning",
+    "NAIC WP7"
+  ],
+  "license": {
+    "id": "GPL-3.0-only"
+  },
+  "upload_type": "software",
+  "access_right": "open"
+}
