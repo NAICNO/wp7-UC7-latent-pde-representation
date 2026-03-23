@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv/
+.venv/
+
+# Data and models
+data/
+models/
+exports/
+latents/
+*.npy
+*.npz
+*.keras
+*.h5
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# Sphinx
+_build/
+public/
+
+# OS
+.DS_Store
+
+# TensorFlow
+logs/
+*.pb
+
+# Pytest
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.json

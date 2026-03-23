@@ -1,0 +1,7 @@
+# Test dependencies (CI-friendly, no GPU/tensorflow)
+numpy
+scipy
+matplotlib
+pandas
+pytest
+pytest-cov
